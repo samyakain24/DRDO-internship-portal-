@@ -14,7 +14,8 @@ from datetime import datetime
 import os
 
 app = Flask(__name__)
-app.secret_key = os.environ.get("SECRET_KEY", "drdo-secret-2024-change-in-prod")
+app.secret_key = os.environ.get(
+    "SECRET_KEY", "drdo-secret-2024-change-in-prod")
 
 # ──────────────────────────────────────────────
 # DATABASE CONFIG  (edit as needed)
@@ -22,7 +23,8 @@ app.secret_key = os.environ.get("SECRET_KEY", "drdo-secret-2024-change-in-prod")
 DB_CONFIG = {
     "host":     os.environ.get("DB_HOST", "localhost"),
     "user":     os.environ.get("DB_USER", "root"),
-    "password": os.environ.get("DB_PASS", "12345678"),          # ← set your MySQL password
+    # ← set your MySQL password
+    "password": os.environ.get("DB_PASS", "DRDO@1911"),
     "database": os.environ.get("DB_NAME", "drdo_portal"),
     "autocommit": False,
 }
@@ -44,7 +46,7 @@ def close_db(exc=None):
 
 def query(sql, params=(), one=False, commit=False):
     """Helper: execute SQL, return rows or lastrowid."""
-    db  = get_db()
+    db = get_db()
     cur = db.cursor(dictionary=True)
     cur.execute(sql, params)
     if commit:
@@ -95,15 +97,15 @@ def login():
         return redirect(url_for("index"))
 
     if request.method == "POST":
-        email    = request.form["email"].strip().lower()
+        email = request.form["email"].strip().lower()
         password = request.form["password"]
         user = query("SELECT * FROM users WHERE email=%s AND is_active=1",
                      (email,), one=True)
 
         if user and check_password_hash(user["password_hash"], password):
-            session["user_id"]   = user["id"]
+            session["user_id"] = user["id"]
             session["user_name"] = user["full_name"]
-            session["role"]      = user["role"]
+            session["role"] = user["role"]
             flash(f"Welcome, {user['full_name']}!", "success")
             return redirect(url_for("index"))
         flash("Invalid email or password.", "danger")
@@ -115,16 +117,17 @@ def login():
 def register():
     if request.method == "POST":
         full_name = request.form["full_name"].strip()
-        email     = request.form["email"].strip().lower()
-        phone     = request.form.get("phone", "").strip()
-        password  = request.form["password"]
-        confirm   = request.form["confirm_password"]
+        email = request.form["email"].strip().lower()
+        phone = request.form.get("phone", "").strip()
+        password = request.form["password"]
+        confirm = request.form["confirm_password"]
 
         if password != confirm:
             flash("Passwords do not match.", "danger")
             return render_template("register.html")
 
-        existing = query("SELECT id FROM users WHERE email=%s", (email,), one=True)
+        existing = query("SELECT id FROM users WHERE email=%s",
+                         (email,), one=True)
         if existing:
             flash("Email already registered.", "danger")
             return render_template("register.html")
@@ -135,7 +138,8 @@ def register():
             (full_name, email, hashed, phone), commit=True
         )
         # create empty profile
-        query("INSERT INTO candidate_profiles (user_id) VALUES (%s)", (uid,), commit=True)
+        query("INSERT INTO candidate_profiles (user_id) VALUES (%s)",
+              (uid,), commit=True)
         flash("Registration successful! Please log in.", "success")
         return redirect(url_for("login"))
 
@@ -179,7 +183,7 @@ def candidate_apply():
     """)
 
     if request.method == "POST":
-        pos_id       = request.form["position_id"]
+        pos_id = request.form["position_id"]
         cover_letter = request.form.get("cover_letter", "").strip()
 
         # check duplicate
@@ -196,7 +200,8 @@ def candidate_apply():
         # log history
         query(
             "INSERT INTO application_history (application_id, old_status, new_status, remarks, changed_by) VALUES (%s,%s,%s,%s,%s)",
-            (app_id, None, "Submitted", "Application submitted by candidate.", session["user_id"]),
+            (app_id, None, "Submitted",
+             "Application submitted by candidate.", session["user_id"]),
             commit=True
         )
         flash("Application submitted successfully!", "success")
@@ -243,7 +248,7 @@ def hr_dashboard():
     stats = {
         "total":      query("SELECT COUNT(*) AS c FROM applications", one=True)["c"],
         "submitted":  query("SELECT COUNT(*) AS c FROM applications WHERE status='Submitted'", one=True)["c"],
-        "shortlisted":query("SELECT COUNT(*) AS c FROM applications WHERE status='Shortlisted'", one=True)["c"],
+        "shortlisted": query("SELECT COUNT(*) AS c FROM applications WHERE status='Shortlisted'", one=True)["c"],
         "selected":   query("SELECT COUNT(*) AS c FROM applications WHERE status='Selected'", one=True)["c"],
     }
     applications = query("""
@@ -281,7 +286,7 @@ def hr_application_detail(app_id):
 
     if request.method == "POST":
         new_status = request.form["status"]
-        remarks    = request.form.get("remarks", "").strip()
+        remarks = request.form.get("remarks", "").strip()
         old_status = application["status"]
 
         query("UPDATE applications SET status=%s, hr_remarks=%s WHERE id=%s",
@@ -303,8 +308,8 @@ def hr_application_detail(app_id):
         ORDER BY ah.changed_at ASC
     """, (app_id,))
 
-    statuses = ["Submitted","Under Review","Shortlisted",
-                "Interview Scheduled","Selected","Rejected"]
+    statuses = ["Submitted", "Under Review", "Shortlisted",
+                "Interview Scheduled", "Selected", "Rejected"]
     return render_template("hr_application_detail.html",
                            application=application, history=history,
                            statuses=statuses)
@@ -373,7 +378,8 @@ def admin_dashboard():
         "positions":    query("SELECT COUNT(*) AS c FROM internship_positions", one=True)["c"],
         "applications": query("SELECT COUNT(*) AS c FROM applications", one=True)["c"],
     }
-    users = query("SELECT id, full_name, email, role, phone, is_active, created_at FROM users ORDER BY created_at DESC")
+    users = query(
+        "SELECT id, full_name, email, role, phone, is_active, created_at FROM users ORDER BY created_at DESC")
     return render_template("admin_dashboard.html", stats=stats, users=users)
 
 
@@ -394,9 +400,9 @@ def admin_toggle_user(uid):
 @role_required("admin")
 def admin_add_hr():
     full_name = request.form["full_name"].strip()
-    email     = request.form["email"].strip().lower()
-    password  = request.form["password"]
-    phone     = request.form.get("phone", "").strip()
+    email = request.form["email"].strip().lower()
+    password = request.form["password"]
+    phone = request.form.get("phone", "").strip()
 
     existing = query("SELECT id FROM users WHERE email=%s", (email,), one=True)
     if existing:
